@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>{% block title %}Wardriving Rig{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="{{ url_for('launcher') }}" class="brand">📡 Wardriving Rig</a>
+    <div class="navlinks">
+      <a href="{{ url_for('launcher') }}">Launcher</a>
+      <a href="{{ url_for('kismet') }}">Kismet</a>
+      <a href="{{ url_for('desktop') }}">Desktop</a>
+      <a href="{{ url_for('export') }}">Export</a>
+    </div>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

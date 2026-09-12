@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Launcher - Wardriving Rig{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Wardriving Rig</h1>
+  <p class="subtitle">Connected to <strong>{{ ssid }}</strong></p>
+</div>
+<div class="grid">
+  <a class="tile" href="{{ url_for('kismet') }}">
+    <span class="tile-icon">📶</span>
+    <span class="tile-label">Kismet</span>
+    <span class="tile-desc">Live Wi-Fi + BLE capture map</span>
+  </a>
+  <a class="tile" href="{{ url_for('desktop') }}">
+    <span class="tile-icon">🖥️</span>
+    <span class="tile-label">Desktop</span>
+    <span class="tile-desc">Full Pi desktop over VNC</span>
+  </a>
+  <a class="tile" href="{{ url_for('export') }}">
+    <span class="tile-icon">⬇️</span>
+    <span class="tile-label">Export</span>
+    <span class="tile-desc">Pull PCAP / BLE captures off the Pi</span>
+  </a>
+</div>
+{% endblock %}

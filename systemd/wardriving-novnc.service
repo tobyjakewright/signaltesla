@@ -1,0 +1,14 @@
+[Unit]
+Description=noVNC websocket proxy for the Pi desktop
+After=network.target wardriving-vnc.service
+Wants=wardriving-vnc.service
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+ExecStart=/usr/bin/websockify --web=/usr/share/novnc/ ${NOVNC_PORT} 127.0.0.1:${VNC_PORT}
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

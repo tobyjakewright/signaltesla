@@ -1,0 +1,15 @@
+[Unit]
+Description=Wardriving launcher web UI (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=${RIG_USER}
+EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+WorkingDirectory=/opt/wardriving-rig/webapp
+ExecStart=/opt/wardriving-rig/webapp/.venv/bin/gunicorn -w 2 -b 127.0.0.1:${WEB_APP_PORT} app:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

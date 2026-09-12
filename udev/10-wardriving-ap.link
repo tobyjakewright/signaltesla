@@ -1,0 +1,8 @@
+# Onboard Pi 5 Wi-Fi (brcmfmac chipset) -> always named wlan_ap.
+# This is the interface that hosts the "WarDriving" hotspot the Tesla
+# and your phone/laptop join.
+[Match]
+Driver=brcmfmac
+
+[Link]
+Name=wlan_ap

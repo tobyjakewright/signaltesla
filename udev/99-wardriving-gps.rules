@@ -1,0 +1,5 @@
+# VK-162 USB GPS dongle (u-blox 7) -> stable /dev/gps0 symlink
+# regardless of ttyACM enumeration order. VID:PID 1546:01a7 is the
+# standard u-blox VK-162 identifier - check `lsusb` if this doesn't match
+# your unit and adjust.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a7", SYMLINK+="gps0", MODE="0666"

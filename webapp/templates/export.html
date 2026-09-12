@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Export - Wardriving Rig{% endblock %}
+{% block content %}
+<div class="hero small">
+  <h1>Export Captures</h1>
+  <p class="subtitle">Pull PCAP / BLE / GPS-tagged logs off the Pi's SD card</p>
+</div>
+
+<div class="panel">
+  <a class="button button-primary" href="{{ url_for('export_download_all') }}">Download all as ZIP</a>
+</div>
+
+<div class="panel">
+  {% if files %}
+  <table class="filetable">
+    <thead>
+      <tr><th>File</th><th>Size (MB)</th><th>Modified</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td>{{ f.name }}</td>
+        <td>{{ f.size_mb }}</td>
+        <td>{{ f.modified }}</td>
+        <td><a class="button" href="{{ url_for('export_download', filename=f.name) }}">Download</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No capture files yet. They'll show up here once Kismet has logged something.</p>
+  {% endif %}
+</div>
+{% endblock %}

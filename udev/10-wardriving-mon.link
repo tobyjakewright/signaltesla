@@ -1,0 +1,8 @@
+# Alfa AWUS036AXML (MediaTek mt7921u chipset) -> always named wlan_mon
+# so it can't get shuffled with the onboard adapter across reboots or
+# USB re-plugs. Used as the Kismet wardriving capture interface.
+[Match]
+Driver=mt7921u
+
+[Link]
+Name=wlan_mon

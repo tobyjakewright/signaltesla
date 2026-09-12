@@ -1,0 +1,19 @@
+# Rendered from rig.conf by scripts/render-configs.sh - do not edit the
+# rendered /etc/hostapd/hostapd.conf directly, edit config/rig.conf instead
+# and re-run install.sh.
+interface=${AP_INTERFACE}
+driver=nl80211
+ssid=${AP_SSID}
+hw_mode=g
+channel=${AP_CHANNEL_24}
+country_code=${AP_COUNTRY}
+ieee80211d=1
+ieee80211n=1
+wmm_enabled=1
+auth_algs=1
+wpa=2
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+wpa_passphrase=${AP_PASSPHRASE}
+macaddr_acl=0
+ignore_broadcast_ssid=0

@@ -1,0 +1,14 @@
+[Unit]
+Description=Assign static IP to the WarDriving AP interface
+Before=hostapd.service dnsmasq.service
+After=network-pre.target systemd-udevd.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+ExecStart=/opt/wardriving-rig/scripts/ap-netconfig.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

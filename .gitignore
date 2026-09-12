@@ -1,0 +1,17 @@
+# Real secrets/config - only the .example template is meant to be committed
+config/rig.conf
+config/vncpasswd
+
+# Capture output if it ever ends up under the repo
+captures/
+*.pcap
+*.pcapng
+*.kismet
+
+# Python
+webapp/.venv/
+__pycache__/
+*.pyc
+
+# OS cruft
+.DS_Store

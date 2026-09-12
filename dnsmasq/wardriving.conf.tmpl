@@ -1,0 +1,17 @@
+# Rendered from rig.conf by scripts/render-configs.sh into
+# /etc/dnsmasq.d/wardriving.conf - scoped to the AP interface only so it
+# never fights systemd-resolved or NetworkManager's own dnsmasq instance.
+interface=${AP_INTERFACE}
+bind-interfaces
+except-interface=lo
+dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,${DHCP_LEASE_TIME}
+dhcp-option=3,${AP_IP}
+dhcp-option=6,${AP_IP}
+dhcp-authoritative
+domain-needed
+bogus-priv
+no-resolv
+server=8.8.8.8
+server=1.1.1.1
+address=/wardriving.local/${AP_IP}
+log-dhcp
