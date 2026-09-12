@@ -140,11 +140,15 @@ OS, not assumed from a Kali-oriented starting point:
 All tunables live in `config/rig.conf` (created from
 `config/rig.conf.example` on first run). Notably:
 
-- `AP_PASSPHRASE` / `VNC_PASSWORD` / `KISMET_PASS` — auto-generated
-  randomly on first run if left at their placeholder values; check
-  `config/rig.conf` after install to see what was generated. Classic VNC
-  auth only honors the **first 8 characters** of `VNC_PASSWORD` - keep it
-  to 8 if you want to type the whole thing and have it matter.
+- `AP_PASSPHRASE` (Wi-Fi hotspot) / `VNC_PASSWORD` — `install.sh` asks
+  for these interactively on first run (input hidden, like a password
+  prompt); press Enter with nothing typed to get a random one instead.
+  Classic VNC auth only honors the **first 8 characters** of
+  `VNC_PASSWORD` - keep it to 8 if you want to type the whole thing and
+  have it matter.
+- `KISMET_PASS` — always auto-generated randomly on first run if left at
+  its placeholder value; check `config/rig.conf` after install to see
+  what was generated.
 - `AP_INTERFACE` / `MON_INTERFACE` — stable names assigned by udev
   (`udev/10-wardriving-*.link`), matched by driver (`brcmfmac` for
   onboard Wi-Fi, `mt7921u` for the Alfa) rather than `wlan0`/`wlan1`,

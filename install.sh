@@ -55,16 +55,47 @@ fi
 
 gen_secret() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c16; }
 
+# Interactively asks for a secret on a real terminal (input hidden, like a
+# password prompt); echoes nothing to stdout but the typed value itself, so
+# it's safe to capture with $(...). Returns 1 (no output) if there's no
+# terminal attached or the user just presses Enter, so the caller can fall
+# back to auto-generating one instead of hanging.
+prompt_secret() {
+  local prompt_text="$1" min_len="$2" value
+  [[ -t 0 ]] || return 1
+  while true; do
+    read -rsp "${prompt_text}: " value
+    echo >&2
+    if [[ -z "$value" ]]; then
+      return 1
+    fi
+    if [[ ${#value} -lt $min_len ]]; then
+      echo "Needs at least ${min_len} characters - try again (or leave it blank to auto-generate one)." >&2
+      continue
+    fi
+    printf '%s' "$value"
+    return 0
+  done
+}
+
 # shellcheck disable=SC1091
 if grep -q '^AP_PASSPHRASE="ChangeThisPassphrase123"' config/rig.conf; then
-  NEW_PASS="$(gen_secret)"
+  if NEW_PASS="$(prompt_secret "Wi-Fi hotspot (AP) passphrase for \"${AP_SSID:-WarDriving}\" - 8-63 chars, blank to auto-generate" 8)"; then
+    log "Using the Wi-Fi hotspot passphrase you entered"
+  else
+    NEW_PASS="$(gen_secret)"
+    log "Generated a random AP_PASSPHRASE (left blank, or no terminal attached)"
+  fi
   sed -i "s/^AP_PASSPHRASE=.*/AP_PASSPHRASE=\"${NEW_PASS}\"/" config/rig.conf
-  log "Generated a random AP_PASSPHRASE (was left at the placeholder value)"
 fi
 if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
-  NEW_VNC="$(gen_secret)"
+  if NEW_VNC="$(prompt_secret "VNC (remote desktop) password - only the first 8 characters count, blank to auto-generate" 4)"; then
+    log "Using the VNC password you entered"
+  else
+    NEW_VNC="$(gen_secret)"
+    log "Generated a random VNC_PASSWORD (left blank, or no terminal attached)"
+  fi
   sed -i "s/^VNC_PASSWORD=.*/VNC_PASSWORD=\"${NEW_VNC}\"/" config/rig.conf
-  log "Generated a random VNC_PASSWORD (was left at the placeholder value)"
 fi
 if grep -q '^KISMET_PASS="ChangeThisKismetRestPw"' config/rig.conf; then
   NEW_KISMET_PASS="$(gen_secret)"
