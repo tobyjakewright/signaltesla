@@ -66,6 +66,11 @@ if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
   sed -i "s/^VNC_PASSWORD=.*/VNC_PASSWORD=\"${NEW_VNC}\"/" config/rig.conf
   log "Generated a random VNC_PASSWORD (was left at the placeholder value)"
 fi
+if grep -q '^KISMET_PASS="ChangeThisKismetRestPw"' config/rig.conf; then
+  NEW_KISMET_PASS="$(gen_secret)"
+  sed -i "s/^KISMET_PASS=.*/KISMET_PASS=\"${NEW_KISMET_PASS}\"/" config/rig.conf
+  log "Generated a random KISMET_PASS (was left at the placeholder value)"
+fi
 
 set -a
 # shellcheck disable=SC1091
@@ -77,6 +82,7 @@ if [[ -z "${RIG_USER:-}" ]] || ! id "$RIG_USER" >/dev/null 2>&1; then
   echo "Edit config/rig.conf and set RIG_USER to your login user, then re-run." >&2
   exit 1
 fi
+RIG_HOME="$(getent passwd "$RIG_USER" | cut -d: -f6)"
 
 log "Installing for user: ${RIG_USER}  |  AP: ${AP_SSID} @ ${AP_IP}"
 
@@ -95,6 +101,7 @@ apt-get install -y \
   gpsd gpsd-clients \
   net-tools usbutils dnsutils \
   tcpdump \
+  build-essential pkg-config libusb-1.0-0-dev libssl-dev \
   x11vnc novnc websockify \
   onboard \
   unzip zip
@@ -158,8 +165,8 @@ log "Rendering configs from config/rig.conf"
 chmod +x scripts/render-configs.sh scripts/ap-netconfig.sh
 ./scripts/render-configs.sh
 
-# (KISMET_LOG_DIR itself is created by the stats GUI installer further
-# down, which owns that directory - see "Custom Stats GUI" below.)
+mkdir -p "$KISMET_LOG_DIR"
+chown "$RIG_USER":"$RIG_USER" "$KISMET_LOG_DIR"
 
 # hostapd needs to be pointed at our rendered conf file
 touch /etc/default/hostapd
@@ -187,11 +194,10 @@ systemctl restart hostapd.service dnsmasq.service || warn "hostapd/dnsmasq faile
 # ---------------------------------------------------------------------------
 # Kismet (official repo + signing key)
 # ---------------------------------------------------------------------------
-# Kismet isn't in Debian's own repos (only Kali ships it directly) - pull
-# it from Kismet's own official apt repo instead. The stats GUI (vendored
-# WirelessBOSS, installed further down) owns Kismet's actual lifecycle via
-# its own systemd --user service; this step just makes sure the `kismet`
-# binary is present before that installer looks for it.
+# Kismet isn't in Debian's own repos at all - only Kali ships it directly.
+# This is the one genuinely Kali-specific gap in a Wi-Fi/BLE wardriving
+# stack like this one; everything else below is standard Debian/Raspberry
+# Pi OS packages. Pull Kismet from its own official apt repo instead.
 install_kismet() {
   command -v kismet >/dev/null 2>&1 && return 0
   local codename
@@ -207,9 +213,21 @@ install_kismet() {
 log "Installing Kismet (from Kismet's own apt repo - not in Debian's)"
 if install_kismet; then
   usermod -aG kismet "$RIG_USER"
+  systemctl enable kismet.service
+  systemctl restart kismet.service || warn "Kismet failed to start - check 'journalctl -u kismet' (often the source interface isn't up yet on first boot - it should come up after a reboot)."
 else
-  warn "Kismet install failed - check network access to kismetwireless.net, then re-run 'sudo ./install.sh' (it's safe to re-run). The stats GUI install below will fail without it."
+  warn "Kismet install failed - check network access to kismetwireless.net, then re-run 'sudo ./install.sh' (it's safe to re-run)."
 fi
+
+log "Setting up Kismet's REST API credentials"
+install -d -o "$RIG_USER" -g "$RIG_USER" -m 0700 "${RIG_HOME}/.kismet"
+cat > "${RIG_HOME}/.kismet/kismet_httpd.conf" <<EOF
+httpd_username=${KISMET_USER}
+httpd_password=${KISMET_PASS}
+EOF
+chown "$RIG_USER":"$RIG_USER" "${RIG_HOME}/.kismet/kismet_httpd.conf"
+chmod 600 "${RIG_HOME}/.kismet/kismet_httpd.conf"
+systemctl restart kismet.service 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # GPS (VK-162 via gpsd)
@@ -225,93 +243,23 @@ systemctl enable gpsd.socket gpsd.service
 systemctl restart gpsd.socket gpsd.service || warn "gpsd failed to start - is the VK-162 plugged in? Check 'ls -l /dev/gps0' and 'cgps'."
 
 # ---------------------------------------------------------------------------
-# Custom Stats GUI (vendored WirelessBOSS) - owns Kismet's Wi-Fi source
-# config, the WCH BLE Analyzer Pro driver, and its own dashboard.
+# BLE capture (WCH BLE Analyzer Pro) - build its libusb driver from source
+# and run it as a plain always-on capture. This is the only piece that
+# talks to that specific hardware; the custom stats GUI's BLE tab just
+# tails its JSON-lines output (see webapp/ble/reader.py).
 # ---------------------------------------------------------------------------
-RIG_HOME="$(getent passwd "$RIG_USER" | cut -d: -f6)"
-STATS_DIR="${INSTALL_DIR}/stats-gui"
+log "Building the WCH BLE Analyzer Pro driver"
+make -C ble-driver clean all
+install -Dm0755 ble-driver/wch_capture /usr/local/bin/wch_capture
+install -Dm0644 ble-driver/99-wch-ble-analyzer.rules /etc/udev/rules.d/99-wch-ble-analyzer.rules
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=usb || true
 
-log "Seeding Kismet's site config for the Alfa on ${MON_INTERFACE}"
-if [[ ! -f /etc/kismet/kismet_site.conf ]]; then
-  install -d /etc/kismet
-  sed "s/wlan0/${MON_INTERFACE}/" "${STATS_DIR}/setup/kismet_site.conf.example" \
-    > /etc/kismet/kismet_site.conf
-else
-  log "/etc/kismet/kismet_site.conf already exists - leaving it as-is"
-fi
-
-log "Setting up Kismet REST API credentials for the stats GUI"
-KISMET_REST_PASS_FILE="${INSTALL_DIR}/config/kismet_rest_password"
-if [[ ! -f "$KISMET_REST_PASS_FILE" ]]; then
-  gen_secret > "$KISMET_REST_PASS_FILE"
-  chmod 600 "$KISMET_REST_PASS_FILE"
-fi
-KISMET_REST_PASS="$(cat "$KISMET_REST_PASS_FILE")"
-
-install -d -o "$RIG_USER" -g "$RIG_USER" -m 0700 "${RIG_HOME}/.kismet"
-cat > "${RIG_HOME}/.kismet/kismet_httpd.conf" <<EOF
-httpd_username=wirelessboss
-httpd_password=${KISMET_REST_PASS}
-EOF
-chown "$RIG_USER":"$RIG_USER" "${RIG_HOME}/.kismet/kismet_httpd.conf"
-chmod 600 "${RIG_HOME}/.kismet/kismet_httpd.conf"
-
-install -d -o "$RIG_USER" -g "$RIG_USER" -m 0700 "${RIG_HOME}/.config/wirelessboss"
-if [[ ! -f "${RIG_HOME}/.config/wirelessboss/config.yaml" ]]; then
-  cat > "${RIG_HOME}/.config/wirelessboss/config.yaml" <<EOF
-kismet:
-  url: http://localhost:2501
-  username: wirelessboss
-  password: "${KISMET_REST_PASS}"
-  apikey: ""
-poll_interval_sec: 2.0
-gpsd:
-  host: localhost
-  port: 2947
-map:
-  tile_url: http://127.0.0.1:8765/{z}/{x}/{y}.png
-  tiles_dir: ${RIG_HOME}/.local/share/wirelessboss/tiles
-  tile_port: 8765
-  attribution: "© OpenStreetMap contributors"
-monitor_interface: ${MON_INTERFACE}
-ble:
-  driver_path: ""
-  max_packets: 5000
-  max_rssi_samples: 300
-signal_analysis:
-  tshark_path: ""
-  max_packets: 5000
-web_port: ${STATS_GUI_PORT}
-tools:
-  require_authorization_prompt: true
-storage:
-  capture_dir: ${RIG_HOME}/.local/share/wirelessboss/captures
-  history_window_sec: 300
-EOF
-  chown "$RIG_USER":"$RIG_USER" "${RIG_HOME}/.config/wirelessboss/config.yaml"
-fi
-
-# Keep the Export page pointed at wherever WirelessBOSS actually writes
-# captures, so the two agree on one directory instead of drifting apart.
-sed -i "s|^KISMET_LOG_DIR=.*|KISMET_LOG_DIR=\"${RIG_HOME}/.local/share/wirelessboss/captures\"|" config/rig.conf
-KISMET_LOG_DIR="${RIG_HOME}/.local/share/wirelessboss/captures"
-
-log "Installing the stats GUI (this builds the WCH driver from source and runs its own apt/pip installs - it will ask for ${RIG_USER}'s sudo password again)"
-if su - "$RIG_USER" -c "cd '${STATS_DIR}' && ./install.sh --country '${AP_COUNTRY}'"; then
-  log "Stats GUI installed - patching its web service to listen on the AP network, not just localhost"
-  WB_UNIT="${RIG_HOME}/.config/systemd/user/wirelessboss-web.service"
-  if [[ -f "$WB_UNIT" ]]; then
-    sed -i "s|^ExecStart=.*|ExecStart=\"${RIG_HOME}/.local/share/wirelessboss/app/.venv/bin/python\" \"${RIG_HOME}/.local/share/wirelessboss/app/wirelessboss_lan_runner.py\"|" "$WB_UNIT"
-    chown "$RIG_USER":"$RIG_USER" "$WB_UNIT"
-    loginctl enable-linger "$RIG_USER" || true
-    su - "$RIG_USER" -c "export XDG_RUNTIME_DIR=/run/user/$(id -u "$RIG_USER"); systemctl --user daemon-reload && systemctl --user restart wirelessboss-web.service" \
-      || warn "Couldn't restart the stats GUI service live from this SSH session (normal before any desktop session has ever started) - it will pick up the patched unit after 'sudo reboot'."
-  else
-    warn "Expected unit file not found at $WB_UNIT - the stats GUI may still be localhost-only. Check after a reboot."
-  fi
-else
-  warn "Stats GUI install failed or was interrupted - re-run 'sudo ./install.sh' (safe to re-run), or install it by hand: su - ${RIG_USER} -c 'cd ${STATS_DIR} && ./install.sh'"
-fi
+install -m 0644 systemd/wardriving-ble.service /etc/systemd/system/wardriving-ble.service
+chmod +x scripts/run-ble-capture.sh
+systemctl daemon-reload
+systemctl enable wardriving-ble.service
+systemctl restart wardriving-ble.service || warn "BLE capture failed to start - is the WCH analyzer plugged in? Check 'lsusb -d 1a86:8009' (should show 3 devices) and 'journalctl -u wardriving-ble'."
 
 log "Setting up the on-screen keyboard (auto-shows when a text field is focused)"
 mkdir -p /etc/xdg/autostart
@@ -379,31 +327,30 @@ cat <<SUMMARY
   Gateway/IP:    ${AP_IP}
   Launcher:      http://${AP_IP}/launcher   (4 buttons, each forwards
                   straight to the dedicated UI below - no wrapper page)
-    Kismet:          :${KISMET_HTTP_PORT}
-    VNC over Web:    :${NOVNC_PORT}
-    Custom Stats GUI: :${STATS_GUI_PORT}   (WirelessBOSS - login user
-                       "wirelessboss", password in
-                       config/kismet_rest_password)
-    Export:          /export
+    Kismet:            :${KISMET_HTTP_PORT}  (REST login "${KISMET_USER}",
+                        password in config/rig.conf)
+    VNC over Web:      :${NOVNC_PORT}
+    Custom Stats GUI:  /stats (part of the same launcher app)
+    Export:            /export
 
   Next steps:
    1. Reboot: sudo reboot
-      (needed for the regulatory domain, desktop autologin, on-screen
-      keyboard, and the stats GUI's network-facing patch to all take
-      effect)
+      (needed for the regulatory domain, desktop autologin, and the
+      on-screen keyboard to all take effect)
    2. On the Tesla's own touchscreen, go to Wi-Fi settings and join
       "${AP_SSID}" like any other network (enter the passphrase from
       config/rig.conf). This is the one part Tesla makes you do by hand.
    3. Join the same "${AP_SSID}" network with your phone/laptop and open
       http://${AP_IP}/launcher
    4. Verify hardware:
-      - iw dev                        (should show ${AP_INTERFACE} and ${MON_INTERFACE})
-      - lsusb -d 1a86:8009            (WCH analyzer - should show 3 devices)
-      - cgps -s                       (GPS fix, needs a clear sky view)
-      - systemctl --user -M ${RIG_USER}@ status wirelessboss-web wirelessboss-kismet
-                                      (stats GUI + Kismet, after reboot)
+      - iw dev                    (should show ${AP_INTERFACE} and ${MON_INTERFACE})
+      - lsusb -d 1a86:8009        (WCH analyzer - should show 3 devices)
+      - cgps -s                   (GPS fix, needs a clear sky view)
+      - journalctl -u kismet -u wardriving-ble -f
+                                  (capture sources coming up)
 
   See README.md for what's still experimental (Tesla auto-load behavior,
-  on-screen keyboard auto-show) and how the stats GUI is wired in.
+  on-screen keyboard auto-show) and what the custom stats GUI leaves out
+  on purpose.
 --------------------------------------------------------------------
 SUMMARY

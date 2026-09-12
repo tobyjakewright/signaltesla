@@ -1,0 +1,29 @@
+# Rendered from rig.conf by scripts/render-configs.sh into
+# /etc/kismet/kismet_site.conf (auto-included by the packaged kismet.conf).
+# Edit config/rig.conf and re-run install.sh rather than hand-editing this.
+
+# Wi-Fi wardriving capture source - the Alfa AWUS036AXML, pinned to the
+# stable name wlan_mon by udev/10-wardriving-mon.link. Kismet puts this
+# into monitor mode itself; no separate airmon-ng step needed.
+#
+# The explicit channels="..." list matters: on the AXML's MediaTek
+# MT7921AU chipset, Kismet's automatic channel enumeration only picks up
+# 2.4GHz - without an explicit list it silently never scans 5GHz at all.
+# This is the ETSI/UK channel set (2.4GHz + UNII-1/2/2e); US/Canada/etc.
+# also get the UNII-3 high channels (149-165) - see README if you need
+# those.
+source=${MON_INTERFACE}:name=wifi_wardriving,type=linuxwifi,channels="1,6,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140"
+
+# GPS via gpsd (fed by the VK-162 over ${GPS_DEVICE}) so every SSID gets
+# tagged with lat/lon.
+gps=gpsd:host=localhost,port=2947,reconnect=true
+
+# Logging - pcapng + kismetdb, GPS-tagged, one set of files per run.
+log_prefix=${KISMET_LOG_DIR}/
+log_types=kismetdb,pcapng
+log_title=wardriving
+
+# Web UI + REST API (credentials in ~/.kismet/kismet_httpd.conf, written
+# by install.sh - see config/rig.conf's KISMET_USER/KISMET_PASS).
+httpd_bind_address=0.0.0.0
+httpd_port=${KISMET_HTTP_PORT}

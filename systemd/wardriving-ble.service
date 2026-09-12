@@ -1,0 +1,13 @@
+[Unit]
+Description=WCH BLE Analyzer Pro capture
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+ExecStart=/opt/wardriving-rig/scripts/run-ble-capture.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Stats - Wardriving Rig{% endblock %}
+{% block content %}
+<a class="backlink" href="{{ url_for('launcher') }}">‹ Launcher</a>
+<div class="hero small">
+  <h1>Custom Stats GUI</h1>
+  <p class="subtitle">Live Wi-Fi + BLE devices, from Kismet and the WCH analyzer</p>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab" data-tab="dashboard" aria-selected="true">Dashboard</button>
+  <button class="tab" data-tab="wifi" aria-selected="false">Wi-Fi Devices</button>
+  <button class="tab" data-tab="ble" aria-selected="false">BLE Devices</button>
+  <button class="tab" data-tab="alerts" aria-selected="false">Alerts</button>
+</div>
+
+<section class="view" data-view="dashboard" data-active="true">
+  <div class="stat-grid" id="stat-tiles"></div>
+</section>
+
+<section class="view" data-view="wifi">
+  <div class="panel">
+    <table class="datatable" id="wifi-table">
+      <thead>
+        <tr>
+          <th>Name / SSID</th><th>MAC</th><th>Kind</th><th>Standard</th>
+          <th>Band / Ch</th><th>Encryption</th><th>Signal</th><th>Clients</th><th>Seen</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="muted" id="wifi-empty" hidden>No Wi-Fi devices seen yet.</p>
+  </div>
+</section>
+
+<section class="view" data-view="ble">
+  <div class="panel">
+    <table class="datatable" id="ble-table">
+      <thead>
+        <tr><th>Name</th><th>Address</th><th>Manufacturer</th><th>RSSI</th><th>Channel</th><th>Seen</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="muted" id="ble-empty" hidden>No BLE devices seen yet.</p>
+  </div>
+</section>
+
+<section class="view" data-view="alerts">
+  <div class="panel">
+    <ul class="alertlist" id="alert-list"></ul>
+    <p class="muted" id="alerts-empty" hidden>No alerts.</p>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='stats.js') }}"></script>
+{% endblock %}

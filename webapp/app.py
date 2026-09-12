@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import tempfile
 import zipfile
@@ -7,6 +8,7 @@ from pathlib import Path
 from flask import (
     Flask,
     abort,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -15,13 +17,24 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+from ble.reader import recent_devices as ble_recent_devices
+from wifi.kismet_client import KismetClient
+
 app = Flask(__name__)
 
 KISMET_HTTP_PORT = os.environ.get("KISMET_HTTP_PORT", "2501")
 NOVNC_PORT = os.environ.get("NOVNC_PORT", "6080")
-STATS_GUI_PORT = os.environ.get("STATS_GUI_PORT", "8080")
 KISMET_LOG_DIR = Path(os.environ.get("KISMET_LOG_DIR", "/home/pi/captures"))
 AP_SSID = os.environ.get("AP_SSID", "WarDriving")
+
+KISMET_URL = os.environ.get("KISMET_URL", f"http://localhost:{KISMET_HTTP_PORT}")
+KISMET_USER = os.environ.get("KISMET_USER", "wardriving")
+KISMET_PASS = os.environ.get("KISMET_PASS", "")
+BLE_JSONL_PATH = os.environ.get(
+    "BLE_JSONL_PATH", str(KISMET_LOG_DIR / "ble-live.jsonl")
+)
+
+kismet = KismetClient(KISMET_URL, KISMET_USER, KISMET_PASS)
 
 
 def request_host_only():
@@ -44,7 +57,52 @@ def launcher():
         ssid=AP_SSID,
         kismet_url=f"http://{host}:{KISMET_HTTP_PORT}/",
         vnc_url=f"http://{host}:{NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale",
-        stats_url=f"http://{host}:{STATS_GUI_PORT}/",
+        stats_url=url_for("stats"),
+    )
+
+
+@app.route("/stats")
+def stats():
+    return render_template("stats.html")
+
+
+def _wifi_device_dict(device) -> dict:
+    d = dataclasses.asdict(device)
+    d["kind"] = device.kind.value
+    d["standard"] = device.standard.value
+    return d
+
+
+@app.route("/api/wifi-devices")
+def api_wifi_devices():
+    return jsonify([_wifi_device_dict(d) for d in kismet.get_devices()])
+
+
+@app.route("/api/ble-devices")
+def api_ble_devices():
+    return jsonify(ble_recent_devices(BLE_JSONL_PATH))
+
+
+@app.route("/api/alerts")
+def api_alerts():
+    return jsonify(kismet.get_alerts())
+
+
+@app.route("/api/status")
+def api_status():
+    reachable = kismet.is_reachable()
+    devices = kismet.get_devices() if reachable else []
+    gps = kismet.get_gps() if reachable else None
+    ble_count = len(ble_recent_devices(BLE_JSONL_PATH))
+    return jsonify(
+        {
+            "kismet_reachable": reachable,
+            "wifi_device_count": len(devices),
+            "ap_count": sum(1 for d in devices if d.kind.value == "Access Point"),
+            "client_count": sum(1 for d in devices if d.kind.value == "Client"),
+            "ble_device_count": ble_count,
+            "gps": dataclasses.asdict(gps) if gps else None,
+        }
     )
 
 

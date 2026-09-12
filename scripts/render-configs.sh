@@ -37,6 +37,10 @@ render "${REPO_DIR}/dnsmasq/wardriving.conf.tmpl" \
   /etc/dnsmasq.d/wardriving.conf \
   '${AP_INTERFACE} ${DHCP_RANGE_START} ${DHCP_RANGE_END} ${DHCP_LEASE_TIME} ${AP_IP}'
 
+render "${REPO_DIR}/kismet/kismet_site.conf.tmpl" \
+  /etc/kismet/kismet_site.conf \
+  '${MON_INTERFACE} ${GPS_DEVICE} ${KISMET_LOG_DIR} ${KISMET_HTTP_PORT}'
+
 render "${REPO_DIR}/nginx/wardriving.conf.tmpl" \
   /etc/nginx/sites-available/wardriving \
   '${WEB_HTTP_PORT} ${WEB_APP_PORT}'

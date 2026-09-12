@@ -1,13 +1,17 @@
 # Real secrets/config - only the .example template is meant to be committed
 config/rig.conf
 config/vncpasswd
-config/kismet_rest_password
 
 # Capture output if it ever ends up under the repo
 captures/
 *.pcap
 *.pcapng
 *.kismet
+*.jsonl
+
+# Compiled BLE driver
+ble-driver/wch_capture
+ble-driver/*.o
 
 # Python
 webapp/.venv/

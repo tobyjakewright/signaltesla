@@ -29,21 +29,21 @@ DHCP_LEASE_TIME="12h"
 GPS_DEVICE="/dev/gps0"
 GPS_BAUD="9600"
 
-# BLE capture (WCH BLE Analyzer Pro) is handled entirely by the vendored
-# stats-gui/ (WirelessBOSS) install - it builds and runs its own libusb
-# driver for the analyzer, no config needed here.
+# --- BLE capture (WCH BLE Analyzer Pro, ble-driver/wch_capture) ---
+# Runs as a plain always-on capture (no start/stop UI, no PHY/LTK/injection
+# controls - see README "What the stats GUI leaves out"). Writes a
+# timestamped .pcap plus a rolling ble-live.jsonl into KISMET_LOG_DIR,
+# which the custom stats GUI's BLE tab tails.
 
 # --- Kismet ---
-# install.sh keeps this in sync with wherever the stats GUI (WirelessBOSS)
-# actually writes its captures, so /export and its own dashboard agree on
-# one directory - a hand-edit here gets overwritten on the next install.sh run.
 KISMET_LOG_DIR="/home/pi/captures"
 KISMET_HTTP_PORT="2501"
+KISMET_USER="wardriving"        # REST API auth - also written to
+KISMET_PASS="ChangeThisKismetRestPw"  # ~/.kismet/kismet_httpd.conf on first run
 
-# --- Web launcher ---
+# --- Web launcher (also serves the custom stats GUI at /stats) ---
 WEB_HTTP_PORT="80"
 WEB_APP_PORT="8090"          # internal gunicorn port, proxied by nginx
-STATS_GUI_PORT="8080"        # WirelessBOSS's own web port (see stats-gui/)
 
 # --- Desktop viewer (noVNC) ---
 NOVNC_PORT="6080"

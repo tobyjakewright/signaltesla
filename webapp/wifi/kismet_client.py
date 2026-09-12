@@ -1,39 +1,29 @@
 """Thin REST client for the Kismet server.
 
-Kismet does the hard part (monitor mode setup, channel hopping, 802.11
-parsing, GPS tagging, storage). This module just pulls normalized
-`WifiDevice` / `GpsFix` snapshots out of its REST API on a poll cycle.
+Kismet does the hard part (monitor mode, channel hopping, 802.11 parsing,
+GPS tagging, storage). This module just pulls normalized `WifiDevice` /
+`GpsFix` snapshots out of its REST API on a poll cycle. Adapted (trimmed)
+from a prior project's WirelessBOSS dashboard.
 
 NOTE ON FIELD NAMES: Kismet's REST field names below (kismet.device.base.*,
-dot11.device.*, dot11.advertisedssid.*) match the documented Kismet REST
-API as of Kismet 2023-era releases. Kismet does not version this schema
-strictly - if a field comes back missing on your install, open
-http://localhost:2501/devices/views/all/devices.json in a browser (or
-`curl -u user:pass ...`) while a device is visible and compare field
-names; adjust FIELD_LIST / classify.py accordingly. All lookups in this
-module use dict.get() with fallbacks so an unexpected schema degrades
-gracefully instead of crashing.
+dot11.device.*) match its documented REST API as of Kismet 2023-era
+releases. Kismet does not version this schema strictly - if a field comes
+back missing, open http://localhost:2501/devices/views/all/devices.json
+in a browser while a device is visible and compare field names, then
+adjust FIELD_LIST / classify.py. All lookups use dict.get() with
+fallbacks so an unexpected schema degrades gracefully instead of crashing.
 """
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import requests
 
-from .config import AppConfig
-from .models import GpsFix, WifiDevice
 from . import classify
+from .models import GpsFix, WifiDevice
 
 log = logging.getLogger(__name__)
 
-# Fields we ask Kismet to return per-device. Requesting an explicit list
-# (rather than the full device object) keeps polling fast even with
-# hundreds of devices in view.
-# Whole nested sub-objects are requested (rather than deep dotted leaf
-# paths) since Kismet's field-simplification key naming for deep paths is
-# not reliably documented; drilling into a known sub-object defensively
-# in classify.py is more robust than guessing an exact leaf key.
 FIELD_LIST = [
     "kismet.device.base.macaddr",
     "kismet.device.base.name",
@@ -45,8 +35,6 @@ FIELD_LIST = [
     "kismet.device.base.frequency",
     "kismet.device.base.signal",
     "kismet.device.base.packets.total",
-    "kismet.device.base.datasize",
-    "kismet.device.base.first_time",
     "kismet.device.base.last_time",
     "kismet.device.base.location",
     "kismet.device.base.crypt",
@@ -55,14 +43,11 @@ FIELD_LIST = [
 
 
 class KismetClient:
-    def __init__(self, cfg: AppConfig):
-        self.cfg = cfg
+    def __init__(self, url: str, username: str, password: str):
         self.session = requests.Session()
-        if cfg.kismet.apikey:
-            self.session.headers["KISMET"] = cfg.kismet.apikey
-        elif cfg.kismet.username:
-            self.session.auth = (cfg.kismet.username, cfg.kismet.password)
-        self.base_url = cfg.kismet.url.rstrip("/")
+        if username:
+            self.session.auth = (username, password)
+        self.base_url = url.rstrip("/")
 
     def _get(self, path: str, **kwargs):
         resp = self.session.get(f"{self.base_url}{path}", timeout=5, **kwargs)
@@ -82,7 +67,6 @@ class KismetClient:
             return False
 
     def get_devices(self) -> list[WifiDevice]:
-        """Return every device Kismet currently knows about, normalized."""
         try:
             raw_devices = self._post(
                 "/devices/views/all/devices.json",
@@ -100,7 +84,7 @@ class KismetClient:
                 log.exception("Failed to parse a Kismet device record, skipping")
         return devices
 
-    def get_gps(self) -> Optional[GpsFix]:
+    def get_gps(self) -> GpsFix | None:
         try:
             raw = self._get("/gps/location.json")
         except requests.RequestException:
@@ -111,9 +95,6 @@ class KismetClient:
             return GpsFix(
                 latitude=lon_lat[1] if len(lon_lat) == 2 else None,
                 longitude=lon_lat[0] if len(lon_lat) == 2 else None,
-                altitude_m=raw.get("kismet.gps.location.alt"),
-                speed_mps=raw.get("kismet.gps.location.speed"),
-                heading_deg=raw.get("kismet.gps.location.heading"),
                 fix_quality=int(fix),
                 satellites=int(raw.get("kismet.gps.location.satellites", 0) or 0),
             )

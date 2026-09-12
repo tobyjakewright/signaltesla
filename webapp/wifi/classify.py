@@ -1,21 +1,22 @@
 """Turns a raw Kismet device JSON record into a normalized WifiDevice.
 
-Kismet's schema has a lot of nested sub-objects whose exact leaf key
-names vary a little by version. `_dig` tries a list of candidate paths
-and returns the first hit, so this stays useful even if one alias is
-wrong for a given Kismet build - worth double-checking against a live
+Adapted (trimmed) from a prior project's WirelessBOSS dashboard - kept
+because it's genuinely basic, portable logic with no special dependency
+beyond Kismet's own REST API.
+
+Kismet's schema has nested sub-objects whose exact leaf key names vary a
+little by version. `_dig` tries a list of candidate paths and returns the
+first hit, so this degrades gracefully instead of crashing if a field is
+missing - worth double-checking against a live
 `/devices/views/all/devices.json` response if fields show up empty.
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .models import DeviceKind, WifiDevice, WirelessStandard
 
-# Kismet crypt bitmask -> human label, common bits (see kis_dot11_phy.h).
-# Treated as best-effort labelling, not authoritative.
 _CRYPT_LABELS = {
-    0: "Open",
     1: "WEP",
     2: "WPA",
     4: "WPA-PSK",
@@ -33,11 +34,8 @@ def _dig(d: Any, *paths: Any) -> Any:
 
     Kismet's JSON uses whole dotted strings as literal object keys (e.g.
     `{"kismet.device.base.macaddr": "..."}`), NOT real nested dicts split
-    on ".". So each candidate here is either a single literal key
-    (a plain string, looked up directly - do not split it), or, when
-    descending through more than one real dict level (e.g. into the
-    `dot11.device` sub-object and then a dotted key inside it), a
-    tuple/list of literal keys applied one dict-level at a time.
+    on ".". Each candidate is either a single literal key, or a
+    tuple/list of literal keys applied one real dict-level at a time.
     """
     for path in paths:
         keys = path if isinstance(path, (list, tuple)) else (path,)
@@ -57,8 +55,6 @@ def _dig(d: Any, *paths: Any) -> Any:
 def _band_from_freq(freq_mhz: int) -> str:
     if not freq_mhz:
         return ""
-    if freq_mhz < 1000:
-        return ""
     if freq_mhz < 2500:
         return "2.4GHz"
     if freq_mhz < 5900:
@@ -75,17 +71,9 @@ def _encryption_label(raw: dict) -> str:
     if isinstance(crypt, int):
         if crypt == 0:
             return "Open"
-        labels = [name for bit, name in _CRYPT_LABELS.items() if bit and crypt & bit]
+        labels = [name for bit, name in _CRYPT_LABELS.items() if crypt & bit]
         return "/".join(sorted(set(labels))) if labels else f"Unknown (0x{crypt:x})"
-    # Fall back to the strongest crypt string across advertised SSIDs.
-    ssid_map = _dig(raw, ("dot11.device", "dot11.device.advertised_ssid_map")) or {}
-    strings = set()
-    if isinstance(ssid_map, dict):
-        for ssid in ssid_map.values():
-            s = _dig(ssid, "dot11.advertisedssid.crypt_string")
-            if s:
-                strings.add(s)
-    return "/".join(sorted(strings)) if strings else "Unknown"
+    return "Unknown"
 
 
 def _device_kind(raw: dict) -> DeviceKind:
@@ -102,8 +90,7 @@ def _device_kind(raw: dict) -> DeviceKind:
 
 
 def _wireless_standard(raw: dict, band: str) -> WirelessStandard:
-    """Best-effort: look for HT/VHT/HE capability markers on advertised SSIDs,
-    otherwise fall back to a reasonable guess from the band alone."""
+    """Best-effort from HT/VHT/HE capability markers, else a guess from band."""
     ssid_map = _dig(raw, ("dot11.device", "dot11.device.advertised_ssid_map")) or {}
     has_ht = has_vht = has_he = False
     if isinstance(ssid_map, dict):
@@ -115,15 +102,12 @@ def _wireless_standard(raw: dict, band: str) -> WirelessStandard:
             if _dig(ssid, "dot11.advertisedssid.he_capabilities", "dot11.advertisedssid.he_mode"):
                 has_he = True
 
-    if has_he:
+    if has_he or band == "6GHz":
         return WirelessStandard.AX
     if has_vht and band == "5GHz":
         return WirelessStandard.AC
     if has_ht:
         return WirelessStandard.N
-    if band == "6GHz":
-        # 6GHz is AX/BE-only in practice even without an explicit HE marker.
-        return WirelessStandard.AX
     if band == "5GHz":
         return WirelessStandard.A
     if band == "2.4GHz":
@@ -131,18 +115,9 @@ def _wireless_standard(raw: dict, band: str) -> WirelessStandard:
     return WirelessStandard.UNKNOWN
 
 
-def _max_rate(raw: dict) -> Optional[float]:
-    rate = _dig(raw, ("dot11.device", "dot11.device.client_map"))
-    # Kismet doesn't expose a single clean "negotiated rate" field on the
-    # base device consistently across versions; leaving this as a hook -
-    # populate it from per-packet dot11.packet.datarate in a future pass
-    # that reads the packet capture feed rather than the device summary.
-    return None
-
-
 def parse_device(raw: dict) -> WifiDevice:
     mac = _dig(raw, "kismet.device.base.macaddr") or "??:??:??:??:??:??"
-    # Kismet reports this field in kHz (e.g. 2412000 for channel 1), not MHz.
+    # Kismet reports this field in kHz (e.g. 2412000 for channel 1).
     freq = int(_dig(raw, "kismet.device.base.frequency") or 0) // 1000
     band = _band_from_freq(freq)
 
@@ -150,14 +125,10 @@ def parse_device(raw: dict) -> WifiDevice:
     last_signal = _dig(signal_obj, "kismet.common.signal.last_signal") or _dig(
         signal_obj, "kismet.common.signal.last_signal_dbm"
     )
-    max_signal = _dig(signal_obj, "kismet.common.signal.max_signal") or _dig(
-        signal_obj, "kismet.common.signal.max_signal_dbm"
-    )
 
     loc_obj = _dig(raw, "kismet.device.base.location") or {}
     avg_loc = _dig(loc_obj, "kismet.common.location.avg_loc") or {}
     geopoint = _dig(avg_loc, "kismet.common.location.geopoint")
-    alt = _dig(avg_loc, "kismet.common.location.alt")
     lat = lon = None
     if isinstance(geopoint, (list, tuple)) and len(geopoint) == 2:
         lon, lat = geopoint[0], geopoint[1]  # Kismet stores [lon, lat]
@@ -168,8 +139,6 @@ def parse_device(raw: dict) -> WifiDevice:
         first = next(iter(ssid_map.values()))
         ssid = _dig(first, "dot11.advertisedssid.ssid") or ""
 
-    bssid = _dig(raw, ("dot11.device", "dot11.device.last_bssid")) or ""
-
     name = (
         ssid
         or _dig(raw, "kismet.device.base.commonname")
@@ -177,33 +146,22 @@ def parse_device(raw: dict) -> WifiDevice:
         or mac
     )
 
-    kind = _device_kind(raw)
-    standard = _wireless_standard(raw, band)
-
     client_map = _dig(raw, ("dot11.device", "dot11.device.client_map")) or {}
     client_count = len(client_map) if isinstance(client_map, dict) else 0
 
     return WifiDevice(
         mac=mac,
         name=name,
-        kind=kind,
-        standard=standard,
+        kind=_device_kind(raw),
+        standard=_wireless_standard(raw, band),
         channel=str(_dig(raw, "kismet.device.base.channel") or ""),
-        frequency_mhz=freq,
         band=band,
         encryption=_encryption_label(raw),
         signal_dbm=int(last_signal) if last_signal not in (None, 0) else None,
-        signal_max_dbm=int(max_signal) if max_signal not in (None, 0) else None,
-        max_rate_mbps=_max_rate(raw),
         manuf=_dig(raw, "kismet.device.base.manuf") or "",
-        bssid=bssid,
         client_count=client_count,
         packets=int(_dig(raw, "kismet.device.base.packets.total") or 0),
-        data_bytes=int(_dig(raw, "kismet.device.base.datasize") or 0),
-        first_seen=_dig(raw, "kismet.device.base.first_time"),
         last_seen=_dig(raw, "kismet.device.base.last_time"),
         latitude=lat,
         longitude=lon,
-        altitude_m=alt,
-        raw=raw,
     )
