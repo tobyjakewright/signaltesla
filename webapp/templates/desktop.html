@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Desktop - Wardriving Rig{% endblock %}
-{% block content %}
-<div class="frame-toolbar">
-  <span>Pi desktop (touch-enabled via noVNC)</span>
-  <a href="{{ novnc_url }}" target="_blank" rel="noopener">Open directly ↗</a>
-</div>
-<iframe class="full-frame" src="{{ novnc_url }}" title="Pi Desktop"></iframe>
-{% endblock %}

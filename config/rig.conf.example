@@ -29,19 +29,21 @@ DHCP_LEASE_TIME="12h"
 GPS_DEVICE="/dev/gps0"
 GPS_BAUD="9600"
 
-# --- BLE sniffer (WCH BLE Analyzer Pro) ---
-# If it enumerates as a standard Bluetooth HCI adapter this will just work.
-# Run `hciconfig -a` after plugging it in and correct this if needed -
-# see README "BLE sniffer caveats".
-BLE_HCI="hci0"
+# BLE capture (WCH BLE Analyzer Pro) is handled entirely by the vendored
+# stats-gui/ (WirelessBOSS) install - it builds and runs its own libusb
+# driver for the analyzer, no config needed here.
 
 # --- Kismet ---
+# install.sh keeps this in sync with wherever the stats GUI (WirelessBOSS)
+# actually writes its captures, so /export and its own dashboard agree on
+# one directory - a hand-edit here gets overwritten on the next install.sh run.
 KISMET_LOG_DIR="/home/pi/captures"
 KISMET_HTTP_PORT="2501"
 
 # --- Web launcher ---
 WEB_HTTP_PORT="80"
-WEB_APP_PORT="8080"          # internal gunicorn port, proxied by nginx
+WEB_APP_PORT="8090"          # internal gunicorn port, proxied by nginx
+STATS_GUI_PORT="8080"        # WirelessBOSS's own web port (see stats-gui/)
 
 # --- Desktop viewer (noVNC) ---
 NOVNC_PORT="6080"

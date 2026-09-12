@@ -19,14 +19,15 @@ app = Flask(__name__)
 
 KISMET_HTTP_PORT = os.environ.get("KISMET_HTTP_PORT", "2501")
 NOVNC_PORT = os.environ.get("NOVNC_PORT", "6080")
+STATS_GUI_PORT = os.environ.get("STATS_GUI_PORT", "8080")
 KISMET_LOG_DIR = Path(os.environ.get("KISMET_LOG_DIR", "/home/pi/captures"))
 AP_SSID = os.environ.get("AP_SSID", "WarDriving")
 
 
 def request_host_only():
-    """Host the browser used to reach us, without the port - so iframe
-    links work whether we're accessed via the AP IP, ethernet, or
-    localhost, without hardcoding an address."""
+    """Host the browser used to reach us, without the port - so the
+    dedicated-UI links below work whether we're accessed via the AP IP,
+    ethernet, or localhost, without hardcoding an address."""
     return request.host.split(":")[0]
 
 
@@ -37,24 +38,14 @@ def index():
 
 @app.route("/launcher")
 def launcher():
-    return render_template("launcher.html", ssid=AP_SSID)
-
-
-@app.route("/kismet")
-def kismet():
     host = request_host_only()
-    kismet_url = f"http://{host}:{KISMET_HTTP_PORT}/"
-    return render_template("kismet.html", kismet_url=kismet_url)
-
-
-@app.route("/pi")
-def desktop():
-    host = request_host_only()
-    novnc_url = (
-        f"http://{host}:{NOVNC_PORT}/vnc.html"
-        "?autoconnect=true&resize=scale&reconnect=true"
+    return render_template(
+        "launcher.html",
+        ssid=AP_SSID,
+        kismet_url=f"http://{host}:{KISMET_HTTP_PORT}/",
+        vnc_url=f"http://{host}:{NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale",
+        stats_url=f"http://{host}:{STATS_GUI_PORT}/",
     )
-    return render_template("desktop.html", novnc_url=novnc_url)
 
 
 def _list_capture_files():
@@ -125,4 +116,4 @@ def export_download_all():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=int(os.environ.get("WEB_APP_PORT", "8080")))
+    app.run(host="127.0.0.1", port=int(os.environ.get("WEB_APP_PORT", "8090")))

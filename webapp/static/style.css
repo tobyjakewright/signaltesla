@@ -17,39 +17,16 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.topnav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  gap: 10px;
-}
+main { padding: 20px; max-width: 1100px; margin: 0 auto; }
 
-.brand {
-  color: var(--fg);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.navlinks a {
+.backlink {
+  display: inline-block;
   color: var(--muted);
   text-decoration: none;
-  padding: 10px 14px;
-  margin-left: 4px;
-  border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  padding: 8px 0;
 }
-
-.navlinks a:hover, .navlinks a:active {
-  background: var(--accent-dim);
-  color: var(--fg);
-}
-
-main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.backlink:hover, .backlink:active { color: var(--fg); }
 
 .hero { text-align: center; padding: 30px 10px 10px; }
 .hero.small { padding: 10px 10px 4px; }
@@ -85,24 +62,6 @@ main { padding: 20px; max-width: 1100px; margin: 0 auto; }
 .tile-label { font-size: 1.3rem; font-weight: 700; }
 .tile-desc { color: var(--muted); font-size: 0.9rem; text-align: center; }
 
-.frame-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 4px;
-  color: var(--muted);
-}
-
-.frame-toolbar a { color: var(--accent); text-decoration: none; }
-
-.full-frame {
-  width: 100%;
-  height: calc(100vh - 150px);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #000;
-}
-
 .panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -137,7 +96,3 @@ main { padding: 20px; max-width: 1100px; margin: 0 auto; }
 }
 
 .muted { color: var(--muted); }
-
-@media (max-width: 480px) {
-  .full-frame { height: calc(100vh - 210px); }
-}

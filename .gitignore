@@ -1,6 +1,7 @@
 # Real secrets/config - only the .example template is meant to be committed
 config/rig.conf
 config/vncpasswd
+config/kismet_rest_password
 
 # Capture output if it ever ends up under the repo
 captures/

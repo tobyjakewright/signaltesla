@@ -6,15 +6,20 @@
   <p class="subtitle">Connected to <strong>{{ ssid }}</strong></p>
 </div>
 <div class="grid">
-  <a class="tile" href="{{ url_for('kismet') }}">
+  <a class="tile" href="{{ kismet_url }}">
     <span class="tile-icon">📶</span>
     <span class="tile-label">Kismet</span>
     <span class="tile-desc">Live Wi-Fi + BLE capture map</span>
   </a>
-  <a class="tile" href="{{ url_for('desktop') }}">
+  <a class="tile" href="{{ vnc_url }}">
     <span class="tile-icon">🖥️</span>
-    <span class="tile-label">Desktop</span>
-    <span class="tile-desc">Full Pi desktop over VNC</span>
+    <span class="tile-label">VNC over Web</span>
+    <span class="tile-desc">Full Pi desktop, touch-controlled</span>
+  </a>
+  <a class="tile" href="{{ stats_url }}">
+    <span class="tile-icon">📊</span>
+    <span class="tile-label">Custom Stats GUI</span>
+    <span class="tile-desc">WirelessBOSS dashboard</span>
   </a>
   <a class="tile" href="{{ url_for('export') }}">
     <span class="tile-icon">⬇️</span>

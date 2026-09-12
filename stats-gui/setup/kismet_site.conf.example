@@ -1,0 +1,56 @@
+# Copy this to /etc/kismet/kismet_site.conf (sudo required) and adjust
+# the interface name. Kismet_site.conf overrides kismet.conf without you
+# needing to touch the package-managed config files - but on this build
+# Kismet only checks /etc/kismet/ for it, NOT ~/.kismet/, so it must go
+# there to actually be loaded:
+#   sudo cp setup/kismet_site.conf.example /etc/kismet/kismet_site.conf
+#   sudo nano /etc/kismet/kismet_site.conf
+
+# Alfa AWUS036AXML as a monitor-mode Wi-Fi source. Replace wlan0 with
+# whatever `iw dev` / `ip link` shows for the adapter (often wlan0 if it's
+# the only wireless interface, wlan1 if there's a built-in adapter too).
+# Kismet handles putting it into monitor mode itself.
+#
+# The explicit channels="..." list is REQUIRED for 5 GHz. On this build,
+# Kismet's automatic channel enumeration for the AXML's MediaTek MT7921AU
+# chip only picks up the 2.4 GHz channels, so without this list the app's
+# quick-start button and the systemd service only ever see 2.4 GHz APs.
+#
+# The list below is the ETSI/UK set: 2.4 GHz (1/6/11) + UNII-1 (36-48) +
+# the DFS bands UNII-2/2e (52-64, 100-140), which Kismet scans passively.
+# In the US/Canada/etc., ALSO add the UNII-3 high channels:
+#   ,149,153,157,161,165
+# setup/install_or_upgrade.sh picks the right list for --country automatically
+# and adds it to this line if it is missing. Check what your domain allows
+# with `iw reg get`.
+source=wlan0:name=AlfaAWUS036AXML,type=linuxwifi,channels="1,6,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140"
+
+# The regulatory domain must be set for 5 GHz to work at all. The updater
+# installs a boot-time service (wifi-regdom.service) that runs `iw reg set
+# <country>`; to change it later:  sudo iw reg set GB  (then edit that unit).
+
+# Optional: with a long channel list the default hop rate sweeps slowly.
+# Raise it for faster coverage (costs some packets per dwell):
+#   channel_hop_speed=8/sec
+
+# GPS via gpsd (works with any GPS module gpsd supports - USB GPS dongles,
+# u-blox modules, etc. Configure the device path in /etc/default/gpsd).
+gps=gpsd:host=localhost,port=2947,reconnect=true
+
+# REST API auth: unlike this file, credentials DO belong in the per-user
+# ~/.kismet/kismet_httpd.conf (confirmed working there), not here. Fastest
+# way to set them (skips the first-run web UI flow):
+#   cat > ~/.kismet/kismet_httpd.conf <<EOF
+#   httpd_username=wirelessboss
+#   httpd_password=change-me
+#   EOF
+# Then put the same username/password into WirelessBOSS's own
+# ~/.config/wirelessboss/config.yaml under the `kismet:` section.
+
+# Log to kismetdb (SQLite, what WirelessBOSS's own device list/history reads)
+# AND pcapng (a standard packet capture Wireshark can open directly - this
+# is what "PCAP recording" in the WirelessBOSS dashboard refers to). Both
+# start/stop together with Kismet itself via the app's Start/Stop Capture
+# button - there's no separate on/off switch for pcap vs kismetdb once
+# Kismet is running.
+log_types=kismetdb,pcapng
