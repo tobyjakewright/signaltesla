@@ -20,3 +20,6 @@ __pycache__/
 
 # OS cruft
 .DS_Store
+
+# Generated deliverables, not source
+SignalTesla-Setup-Guide.pdf
