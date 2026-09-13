@@ -55,6 +55,12 @@ fi
 
 gen_secret() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c16; }
 
+# Escapes a value for safe use as a sed replacement string. Without this,
+# a user-typed passphrase containing '/', '&', or '\' breaks the s/// syntax
+# outright, which - under `set -e` - kills the whole install silently right
+# at that line (this bit us: an AP/VNC password with a '/' in it).
+sed_escape() { printf '%s' "$1" | sed -e 's/[\/&\\]/\\&/g'; }
+
 # Interactively asks for a secret on a real terminal (input hidden, like a
 # password prompt); echoes nothing to stdout but the typed value itself, so
 # it's safe to capture with $(...). Returns 1 (no output) if there's no
@@ -86,7 +92,7 @@ if grep -q '^AP_PASSPHRASE="ChangeThisPassphrase123"' config/rig.conf; then
     NEW_PASS="$(gen_secret)"
     log "Generated a random AP_PASSPHRASE (left blank, or no terminal attached)"
   fi
-  sed -i "s/^AP_PASSPHRASE=.*/AP_PASSPHRASE=\"${NEW_PASS}\"/" config/rig.conf
+  sed -i "s/^AP_PASSPHRASE=.*/AP_PASSPHRASE=\"$(sed_escape "$NEW_PASS")\"/" config/rig.conf
 fi
 if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
   if NEW_VNC="$(prompt_secret "VNC (remote desktop) password - only the first 8 characters count, blank to auto-generate" 4)"; then
@@ -95,7 +101,7 @@ if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
     NEW_VNC="$(gen_secret)"
     log "Generated a random VNC_PASSWORD (left blank, or no terminal attached)"
   fi
-  sed -i "s/^VNC_PASSWORD=.*/VNC_PASSWORD=\"${NEW_VNC}\"/" config/rig.conf
+  sed -i "s/^VNC_PASSWORD=.*/VNC_PASSWORD=\"$(sed_escape "$NEW_VNC")\"/" config/rig.conf
 fi
 if grep -q '^KISMET_PASS="ChangeThisKismetRestPw"' config/rig.conf; then
   NEW_KISMET_PASS="$(gen_secret)"
