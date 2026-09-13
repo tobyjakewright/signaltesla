@@ -358,6 +358,10 @@ raspi-config nonint do_boot_behaviour B4 || true   # boot to desktop, autologin
 log "Setting the VNC password"
 mkdir -p "${INSTALL_DIR}/config"
 x11vnc -storepasswd "$VNC_PASSWORD" "${INSTALL_DIR}/config/vncpasswd"
+# wardriving-vnc.service runs x11vnc as $RIG_USER (not root), so it needs to
+# be able to read this file - root:root 600 (this script runs as root) would
+# leave x11vnc unable to open its own passwdfile, crash-looping on startup.
+chown "$RIG_USER":"$RIG_USER" "${INSTALL_DIR}/config/vncpasswd"
 chmod 600 "${INSTALL_DIR}/config/vncpasswd"
 
 # (wardriving-vnc.service and wardriving-web.service were already rendered
