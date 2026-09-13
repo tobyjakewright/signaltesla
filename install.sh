@@ -337,21 +337,22 @@ su - "$RIG_USER" -c "dbus-launch --exit-with-session gsettings set org.onboard a
 # Desktop environment + VNC + noVNC (for the /pi touchscreen view)
 # ---------------------------------------------------------------------------
 log "Checking for a desktop environment"
-if ! dpkg -l | grep -qE 'raspberrypi-ui-mods|task-lxde-desktop'; then
+# Check for an actual launchable session (an .desktop file LightDM can
+# start), not a specific package name - current Raspberry Pi OS ships its
+# default desktop (rpd-labwc, a Wayland/labwc session) preinstalled in the
+# base image under package names (raspberrypi-sys-mods, pix-theme, labwc,
+# ...) that have changed across releases and don't match older checks like
+# raspberrypi-ui-mods/task-lxde-desktop. Checking package names caused a
+# false "no desktop" positive that installed a redundant, conflicting
+# task-lxde-desktop alongside the already-working rpd-labwc session, which
+# then left apt considering labwc/pi-greeter/xwayland etc. "no longer
+# required" - one `apt autoremove` away from deleting the real desktop.
+if ! compgen -G "/usr/share/xsessions/*.desktop" >/dev/null && \
+   ! compgen -G "/usr/share/wayland-sessions/*.desktop" >/dev/null; then
   warn "No desktop environment detected - installing one (this is a big download)."
-  # raspberrypi-ui-mods was the full PIXEL desktop meta-package on older
-  # Raspberry Pi OS releases; newer ones split it into raspberrypi-sys-mods
-  # + pix-theme, under a name that varies by release. task-lxde-desktop is
-  # the stable, standard Debian meta-package that exists everywhere, so it's
-  # the reliable fallback when the Pi-specific name isn't available.
-  #
-  # Attempt raspberrypi-ui-mods first and only fall back on actual failure
-  # (rather than pre-checking with apt-cache show) - a transitional/renamed
-  # package can still have a stub cache entry that makes the pre-check pass
-  # even though it has no installable candidate.
-  if ! apt-get install -y raspberrypi-ui-mods lightdm; then
-    apt-get install -y task-lxde-desktop lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
-  fi
+  # task-lxde-desktop is the stable, standard Debian meta-package that
+  # exists everywhere, so it's the reliable fallback here.
+  apt-get install -y task-lxde-desktop lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
 fi
 raspi-config nonint do_boot_behaviour B4 || true   # boot to desktop, autologin
 
