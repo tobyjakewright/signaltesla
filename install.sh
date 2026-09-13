@@ -53,7 +53,20 @@ if [[ ! -f config/rig.conf ]]; then
   fi
 fi
 
-gen_secret() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c16; }
+# Two independent gotchas with `tr </dev/urandom` under `set -e`/`pipefail`,
+# both of which silently kill the whole install right at this line:
+#  1. In a UTF-8 locale, tr chokes on invalid multibyte sequences in the raw
+#     random bytes ("illegal byte sequence" / "invalid or incomplete
+#     multibyte or wide character") - fixed by forcing LC_ALL=C.
+#  2. `head -c16` exits as soon as it has its 16 bytes, closing the pipe
+#     while tr is still writing - tr gets SIGPIPE, and pipefail makes that
+#     the pipeline's (nonzero) exit status even though the output is fine.
+#     `|| true` tolerates that expected SIGPIPE; $out is already correct.
+gen_secret() {
+  local out
+  out="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c16)" || true
+  printf '%s' "$out"
+}
 
 # Escapes a value for safe use as a sed replacement string. Without this,
 # a user-typed passphrase containing '/', '&', or '\' breaks the s/// syntax
