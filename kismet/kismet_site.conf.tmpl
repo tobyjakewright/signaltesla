@@ -12,7 +12,14 @@
 # This is the ETSI/UK channel set (2.4GHz + UNII-1/2/2e); US/Canada/etc.
 # also get the UNII-3 high channels (149-165) - see README if you need
 # those.
-source=${MON_INTERFACE}:name=wifi_wardriving,type=linuxwifi,channels="1,6,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140"
+#
+# hop=true is required too - channels="..." alone only defines *what*
+# to hop across, it does not itself turn hopping on. Without hop=true,
+# Kismet silently pins the source on whatever channel it opened with
+# (channel 1 here) and never moves, even within 2.4GHz - confirmed via
+# `iw dev` staying on channel 1 across multiple samples with hop=true
+# absent.
+source=${MON_INTERFACE}:name=wifi_wardriving,hop=true,channel_hoprate=5/sec,type=linuxwifi,channels="1,6,11,36,40,44,48,52,56,60,64,100,104,108,112,116,132,136,140"
 
 # GPS via gpsd (fed by the VK-162 over ${GPS_DEVICE}) so every SSID gets
 # tagged with lat/lon.
