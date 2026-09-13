@@ -344,9 +344,12 @@ if ! dpkg -l | grep -qE 'raspberrypi-ui-mods|task-lxde-desktop'; then
   # + pix-theme, under a name that varies by release. task-lxde-desktop is
   # the stable, standard Debian meta-package that exists everywhere, so it's
   # the reliable fallback when the Pi-specific name isn't available.
-  if apt-cache show raspberrypi-ui-mods >/dev/null 2>&1; then
-    apt-get install -y raspberrypi-ui-mods lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
-  else
+  #
+  # Attempt raspberrypi-ui-mods first and only fall back on actual failure
+  # (rather than pre-checking with apt-cache show) - a transitional/renamed
+  # package can still have a stub cache entry that makes the pre-check pass
+  # even though it has no installable candidate.
+  if ! apt-get install -y raspberrypi-ui-mods lightdm; then
     apt-get install -y task-lxde-desktop lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
   fi
 fi
