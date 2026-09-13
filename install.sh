@@ -25,10 +25,16 @@ INSTALL_DIR="/opt/wardriving-rig"
 # Re-copy ourselves to a stable install path so unit files' hardcoded
 # /opt/wardriving-rig references are always valid, regardless of where
 # you cloned the repo.
+#
+# config/rig.conf and config/vncpasswd are gitignored - they only ever
+# exist in INSTALL_DIR, created by this script on a previous run, never
+# in REPO_SRC. Without excluding them here, --delete wipes them out on
+# every re-run (before the "does rig.conf exist yet" check below even
+# runs), silently resetting your AP/VNC/Kismet passwords each time.
 if [[ "$REPO_SRC" != "$INSTALL_DIR" ]]; then
   log "Copying repo to ${INSTALL_DIR}"
   mkdir -p "$INSTALL_DIR"
-  rsync -a --delete --exclude ".git" "$REPO_SRC"/ "$INSTALL_DIR"/
+  rsync -a --delete --exclude ".git" --exclude "config/rig.conf" --exclude "config/vncpasswd" "$REPO_SRC"/ "$INSTALL_DIR"/
   exec "$INSTALL_DIR/install.sh" "$@"
 fi
 
