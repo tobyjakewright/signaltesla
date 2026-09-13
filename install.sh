@@ -357,6 +357,14 @@ fi
 raspi-config nonint do_boot_behaviour B4 || true   # boot to desktop, autologin
 
 log "Setting up wayvnc (Wayland-native VNC server for the rpd-labwc desktop)"
+# Clean up the old x11vnc-based wardriving-vnc.service from earlier
+# installs of this repo - it's replaced by the XDG-autostart wayvnc setup
+# below and would otherwise be left enabled, permanently crash-looping.
+if systemctl list-unit-files wardriving-vnc.service >/dev/null 2>&1; then
+  systemctl disable --now wardriving-vnc.service 2>/dev/null || true
+  rm -f /etc/systemd/system/wardriving-vnc.service
+  systemctl daemon-reload
+fi
 # rpd-labwc is a Wayland compositor, not X11 - a VNC server has to speak
 # the wlroots screen-capture/virtual-input protocols to work with it at
 # all, which is what wayvnc is for (x11vnc, used here previously, cannot
