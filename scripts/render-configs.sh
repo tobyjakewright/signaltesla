@@ -44,9 +44,21 @@ render() {
   echo "rendered ${out}"
 }
 
+# AP_BAND picks which of AP_CHANNEL_24/AP_CHANNEL_5 (and the matching
+# hostapd hw_mode) the AP actually uses - see the comment by AP_CHANNEL_5
+# in rig.conf.example re: sticking to non-DFS 5GHz channels.
+if [[ "${AP_BAND:-2.4}" == "5" ]]; then
+  AP_HW_MODE="a"
+  AP_CHANNEL="$AP_CHANNEL_5"
+else
+  AP_HW_MODE="g"
+  AP_CHANNEL="$AP_CHANNEL_24"
+fi
+export AP_HW_MODE AP_CHANNEL
+
 render "${REPO_DIR}/hostapd/hostapd.conf.tmpl" \
   /etc/hostapd/hostapd.conf \
-  '${AP_INTERFACE} ${AP_SSID} ${AP_CHANNEL_24} ${AP_COUNTRY} ${AP_PASSPHRASE}'
+  '${AP_INTERFACE} ${AP_SSID} ${AP_HW_MODE} ${AP_CHANNEL} ${AP_COUNTRY} ${AP_PASSPHRASE}'
 
 render "${REPO_DIR}/dnsmasq/wardriving.conf.tmpl" \
   /etc/dnsmasq.d/wardriving.conf \

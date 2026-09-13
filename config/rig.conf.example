@@ -6,7 +6,14 @@
 # --- Access point the Pi hosts (Tesla + your phone/laptop join this) ---
 AP_SSID="WarDriving"
 AP_PASSPHRASE="ChangeThisPassphrase123"   # WPA2-PSK, 8-63 chars. Change this.
-AP_CHANNEL_24="6"                          # 2.4GHz channel for the AP
+AP_BAND="2.4"                              # "2.4" or "5" - which band the AP broadcasts on
+AP_CHANNEL_24="6"                          # 2.4GHz channel for the AP (used when AP_BAND="2.4")
+# Non-DFS UNII-1 channels only (36/40/44/48) - the onboard Pi Wi-Fi chip's
+# AP mode (brcmfmac) has a known history of unreliable/missing support for
+# DFS channels (52+), which require radar detection before the AP can even
+# start transmitting. Stick to 36/40/44/48 unless you've confirmed DFS
+# works in AP mode on your specific board/firmware.
+AP_CHANNEL_5="36"                          # 5GHz channel for the AP (used when AP_BAND="5")
 AP_COUNTRY="GB"
 
 # Stable interface names assigned by udev (see udev/99-wardriving.rules).

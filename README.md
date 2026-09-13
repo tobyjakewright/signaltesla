@@ -149,6 +149,13 @@ All tunables live in `config/rig.conf` (created from
   username+password auth (`RIG_USER` / `VNC_PASSWORD`, no length limit -
   unlike the old x11vnc setup, which only honored the first 8 characters
   of a classic VNC password).
+- `AP_BAND` — `"2.4"` (default) or `"5"`, which band the hotspot itself
+  broadcasts on (`AP_CHANNEL_24`/`AP_CHANNEL_5` pick the actual channel
+  for whichever band is active). Stick to non-DFS 5GHz channels
+  (36/40/44/48) - the onboard Pi Wi-Fi chip's AP mode has a known history
+  of unreliable DFS support, which channels 52+ require. If hostapd fails
+  to start after switching to 5GHz, check `journalctl -u hostapd` and fall
+  back to `AP_BAND="2.4"`.
 - `AP_INTERFACE` / `MON_INTERFACE` — stable names assigned by udev
   (`udev/10-wardriving-*.link`), matched by driver (`brcmfmac` for
   onboard Wi-Fi, `mt7921u` for the Alfa) rather than `wlan0`/`wlan1`,
