@@ -24,36 +24,58 @@
     return td;
   }
 
+  // Shared by refreshStatus/refreshWifi so both can update their own slice
+  // of the stat tiles without one clobbering the other - wifi_device_count/
+  // ap_count/client_count are derived client-side from the SAME device
+  // list /api/wifi-devices already fetches, rather than /api/status paying
+  // for its own separate (expensive) Kismet device query for the same
+  // numbers every poll.
+  const latestStats = {
+    kismet_reachable: false,
+    wifi_device_count: 0,
+    ap_count: 0,
+    client_count: 0,
+    ble_device_count: 0,
+    gps: null,
+  };
+
+  function renderStatTiles() {
+    const gps = latestStats.gps;
+    const gpsText = gps && gps.fix_quality >= 2
+      ? `${gps.fix_quality === 3 ? "3D" : "2D"} fix - ${gps.satellites} sats`
+      : "No fix";
+    const tiles = [
+      ["Kismet", latestStats.kismet_reachable ? "Connected" : "Unreachable"],
+      ["Wi-Fi Devices", latestStats.wifi_device_count],
+      ["Access Points", latestStats.ap_count],
+      ["Clients", latestStats.client_count],
+      ["BLE Devices", latestStats.ble_device_count],
+      ["GPS", gpsText],
+    ];
+    const grid = document.getElementById("stat-tiles");
+    grid.innerHTML = "";
+    for (const [label, value] of tiles) {
+      const tile = document.createElement("div");
+      tile.className = "stat-tile";
+      const v = document.createElement("div");
+      v.className = "stat-value";
+      v.textContent = value;
+      const l = document.createElement("div");
+      l.className = "stat-label";
+      l.textContent = label;
+      tile.append(v, l);
+      grid.appendChild(tile);
+    }
+  }
+
   async function refreshStatus() {
     try {
       const r = await fetch("/api/status");
       const s = await r.json();
-      const gps = s.gps;
-      const gpsText = gps && gps.fix_quality >= 2
-        ? `${gps.fix_quality === 3 ? "3D" : "2D"} fix - ${gps.satellites} sats`
-        : "No fix";
-      const tiles = [
-        ["Kismet", s.kismet_reachable ? "Connected" : "Unreachable"],
-        ["Wi-Fi Devices", s.wifi_device_count],
-        ["Access Points", s.ap_count],
-        ["Clients", s.client_count],
-        ["BLE Devices", s.ble_device_count],
-        ["GPS", gpsText],
-      ];
-      const grid = document.getElementById("stat-tiles");
-      grid.innerHTML = "";
-      for (const [label, value] of tiles) {
-        const tile = document.createElement("div");
-        tile.className = "stat-tile";
-        const v = document.createElement("div");
-        v.className = "stat-value";
-        v.textContent = value;
-        const l = document.createElement("div");
-        l.className = "stat-label";
-        l.textContent = label;
-        tile.append(v, l);
-        grid.appendChild(tile);
-      }
+      latestStats.kismet_reachable = s.kismet_reachable;
+      latestStats.ble_device_count = s.ble_device_count;
+      latestStats.gps = s.gps;
+      renderStatTiles();
     } catch (e) {
       /* Kismet or the network hiccuping shouldn't spam the console every poll. */
     }
@@ -63,6 +85,11 @@
     try {
       const r = await fetch("/api/wifi-devices");
       const devices = await r.json();
+      latestStats.wifi_device_count = devices.length;
+      latestStats.ap_count = devices.filter((d) => d.kind === "Access Point").length;
+      latestStats.client_count = devices.filter((d) => d.kind === "Client").length;
+      renderStatTiles();
+
       const tbody = document.querySelector("#wifi-table tbody");
       tbody.innerHTML = "";
       for (const d of devices) {
@@ -137,5 +164,5 @@
   }
 
   refreshAll();
-  setInterval(refreshAll, 3000);
+  setInterval(refreshAll, 5000);
 })();

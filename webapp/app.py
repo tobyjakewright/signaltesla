@@ -90,16 +90,18 @@ def api_alerts():
 
 @app.route("/api/status")
 def api_status():
+    # Deliberately does NOT call kismet.get_devices() - the dashboard
+    # already fetches the full device list every poll via /api/wifi-devices
+    # and derives wifi_device_count/ap_count/client_count from that response
+    # client-side (see stats.js). Kismet's device list is its single most
+    # expensive query; querying it twice per 3-second poll cycle for the
+    # same data was doubling load on it for nothing.
     reachable = kismet.is_reachable()
-    devices = kismet.get_devices() if reachable else []
     gps = kismet.get_gps() if reachable else None
     ble_count = len(ble_recent_devices(BLE_JSONL_PATH))
     return jsonify(
         {
             "kismet_reachable": reachable,
-            "wifi_device_count": len(devices),
-            "ap_count": sum(1 for d in devices if d.kind.value == "Access Point"),
-            "client_count": sum(1 for d in devices if d.kind.value == "Client"),
             "ble_device_count": ble_count,
             "gps": dataclasses.asdict(gps) if gps else None,
         }
