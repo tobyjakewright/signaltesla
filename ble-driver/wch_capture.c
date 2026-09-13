@@ -672,9 +672,17 @@ int main(int argc, char *argv[])
     /*
      * Main capture loop.
      *
-     * Strategy: drain each MCU's USB buffer completely before moving on.
-     * This prevents the artificial 1:1:1 channel ratio caused by reading
-     * exactly one bulk transfer per MCU per loop iteration.
+     * Strategy: drain each MCU's USB buffer before moving on, capped at
+     * MAX_DRAIN_READS_PER_MCU reads. The cap matters: draining
+     * *uncapped* (the original approach here) means a channel busy enough
+     * to never go idle within a single DRAIN_POLL_MS poll starves the
+     * other MCUs completely, since the outer loop can never advance past
+     * it - confirmed live, with channel 38 alone producing 100% of
+     * packets and channels 37/39 receiving zero service. The cap
+     * preserves the original goal (avoid an artificial 1:1:1 read ratio
+     * from servicing exactly one bulk transfer per MCU per pass) for
+     * normal bursts, while still guaranteeing every MCU gets serviced
+     * every pass regardless of how busy any one of them is.
      *
      * DRAIN_POLL_MS: short timeout used to drain buffered packets quickly.
      *   Returning 0 (timeout) means the MCU's kernel buffer is empty.
@@ -685,17 +693,18 @@ int main(int argc, char *argv[])
 #define DRAIN_POLL_MS  5    /* quick drain: check for already-buffered data  */
 #define IDLE_WAIT_MS   100  /* idle wait: block until traffic arrives (per MCU) */
 #define MAX_CONSECUTIVE_READ_ERRORS 5
+#define MAX_DRAIN_READS_PER_MCU 32  /* cap reads/pass so one busy MCU can't starve the others */
 
     unsigned int consecutive_read_errors[MAX_MCU_DEVICES] = {0};
 
     while (!g_stop) {
         bool any_data = false;
 
-        /* Phase 1: drain each MCU until its buffer is empty */
+        /* Phase 1: drain each MCU until its buffer is empty (or the cap is hit) */
         for (int i = 0; i < ndev && !g_stop; i++) {
             if (!devs[i].is_open || !capture_started[i] || !bufs[i])
                 continue;
-            for (;;) {
+            for (int drains = 0; drains < MAX_DRAIN_READS_PER_MCU; drains++) {
                 int n = wch_read_packets(&devs[i], bufs[i], on_packet,
                                          &packet_ctx[i],
                                          DRAIN_POLL_MS);
