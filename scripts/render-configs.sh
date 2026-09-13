@@ -22,6 +22,21 @@ if ! command -v envsubst >/dev/null 2>&1; then
   exit 1
 fi
 
+# systemd's EnvironmentFile= parser is not a shell parser - it does NOT
+# strip inline "# comment" text after a value (only whole-line comments),
+# unlike the `source "$CONF"` above. Any rig.conf var with an inline
+# comment (e.g. VNC_DISPLAY_NUM="1"          # :1) would come through
+# corrupted - concatenated with its own trailing comment - for any unit
+# that reads rig.conf directly via EnvironmentFile=. Render a clean,
+# comment-free copy from the already-parsed (comment-stripped) shell
+# variables above, and point every such unit at that instead.
+ENV_FILE="/etc/wardriving-rig.env"
+: > "$ENV_FILE"
+while IFS= read -r name; do
+  printf '%s="%s"\n' "$name" "${!name}" >> "$ENV_FILE"
+done < <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$CONF" | sed 's/=$//')
+echo "rendered ${ENV_FILE}"
+
 render() {
   local tmpl="$1" out="$2" vars="$3"
   mkdir -p "$(dirname "$out")"
@@ -47,7 +62,8 @@ render "${REPO_DIR}/nginx/wardriving.conf.tmpl" \
 
 # NOTE: these two only pre-render RIG_USER. WEB_APP_PORT / VNC_DISPLAY_NUM /
 # VNC_PORT are left as literal ${VAR} in the output - systemd itself
-# expands those at service-start time via EnvironmentFile=rig.conf.
+# expands those at service-start time via EnvironmentFile=/etc/wardriving-rig.env
+# (the comment-free copy rendered above - see the note there for why).
 render "${REPO_DIR}/systemd/wardriving-web.service.tmpl" \
   /etc/systemd/system/wardriving-web.service \
   '${RIG_USER}'

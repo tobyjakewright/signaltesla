@@ -5,7 +5,7 @@ Wants=wardriving-vnc.service
 
 [Service]
 Type=simple
-EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+EnvironmentFile=/etc/wardriving-rig.env
 ExecStart=/usr/bin/websockify --web=/usr/share/novnc/ ${NOVNC_PORT} 127.0.0.1:${VNC_PORT}
 Restart=on-failure
 RestartSec=3

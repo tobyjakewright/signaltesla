@@ -5,7 +5,7 @@ After=graphical.target
 [Service]
 Type=simple
 User=${RIG_USER}
-EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+EnvironmentFile=/etc/wardriving-rig.env
 ExecStart=/usr/bin/x11vnc -display :${VNC_DISPLAY_NUM} -rfbport ${VNC_PORT} -auth guess -forever -shared -noxdamage -passwdfile /opt/wardriving-rig/config/vncpasswd
 Restart=on-failure
 RestartSec=5

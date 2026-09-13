@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-EnvironmentFile=/opt/wardriving-rig/config/rig.conf
+EnvironmentFile=/etc/wardriving-rig.env
 ExecStart=/opt/wardriving-rig/scripts/run-ble-capture.sh
 Restart=on-failure
 RestartSec=5
