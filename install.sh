@@ -117,9 +117,13 @@ if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
   sed -i "s/^VNC_PASSWORD=.*/VNC_PASSWORD=\"$(sed_escape "$NEW_VNC")\"/" config/rig.conf
 fi
 if grep -q '^KISMET_PASS="ChangeThisKismetRestPw"' config/rig.conf; then
-  NEW_KISMET_PASS="$(gen_secret)"
-  sed -i "s/^KISMET_PASS=.*/KISMET_PASS=\"${NEW_KISMET_PASS}\"/" config/rig.conf
-  log "Generated a random KISMET_PASS (was left at the placeholder value)"
+  if NEW_KISMET_PASS="$(prompt_secret "Kismet web UI password (login \"${KISMET_USER:-wardriving}\") - blank to auto-generate" 4)"; then
+    log "Using the Kismet password you entered"
+  else
+    NEW_KISMET_PASS="$(gen_secret)"
+    log "Generated a random KISMET_PASS (left blank, or no terminal attached)"
+  fi
+  sed -i "s/^KISMET_PASS=.*/KISMET_PASS=\"$(sed_escape "$NEW_KISMET_PASS")\"/" config/rig.conf
 fi
 
 set -a
