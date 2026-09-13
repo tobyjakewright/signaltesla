@@ -328,8 +328,17 @@ su - "$RIG_USER" -c "dbus-launch --exit-with-session gsettings set org.onboard a
 # ---------------------------------------------------------------------------
 log "Checking for a desktop environment"
 if ! dpkg -l | grep -qE 'raspberrypi-ui-mods|task-lxde-desktop'; then
-  warn "No desktop environment detected - installing raspberrypi-ui-mods (this is a big download)."
-  apt-get install -y raspberrypi-ui-mods lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
+  warn "No desktop environment detected - installing one (this is a big download)."
+  # raspberrypi-ui-mods was the full PIXEL desktop meta-package on older
+  # Raspberry Pi OS releases; newer ones split it into raspberrypi-sys-mods
+  # + pix-theme, under a name that varies by release. task-lxde-desktop is
+  # the stable, standard Debian meta-package that exists everywhere, so it's
+  # the reliable fallback when the Pi-specific name isn't available.
+  if apt-cache show raspberrypi-ui-mods >/dev/null 2>&1; then
+    apt-get install -y raspberrypi-ui-mods lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
+  else
+    apt-get install -y task-lxde-desktop lightdm || warn "Desktop install failed - the Desktop button in the launcher won't work until one is installed manually."
+  fi
 fi
 raspi-config nonint do_boot_behaviour B4 || true   # boot to desktop, autologin
 
