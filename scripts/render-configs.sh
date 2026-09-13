@@ -60,16 +60,12 @@ render "${REPO_DIR}/nginx/wardriving.conf.tmpl" \
   /etc/nginx/sites-available/wardriving \
   '${WEB_HTTP_PORT} ${WEB_APP_PORT}'
 
-# NOTE: these two only pre-render RIG_USER. WEB_APP_PORT / VNC_DISPLAY_NUM /
-# VNC_PORT are left as literal ${VAR} in the output - systemd itself
-# expands those at service-start time via EnvironmentFile=/etc/wardriving-rig.env
-# (the comment-free copy rendered above - see the note there for why).
+# NOTE: this one only pre-renders RIG_USER. WEB_APP_PORT is left as a
+# literal ${VAR} in the output - systemd itself expands it at service-start
+# time via EnvironmentFile=/etc/wardriving-rig.env (the comment-free copy
+# rendered above - see the note there for why).
 render "${REPO_DIR}/systemd/wardriving-web.service.tmpl" \
   /etc/systemd/system/wardriving-web.service \
-  '${RIG_USER}'
-
-render "${REPO_DIR}/systemd/wardriving-vnc.service.tmpl" \
-  /etc/systemd/system/wardriving-vnc.service \
   '${RIG_USER}'
 
 echo "Config render complete."

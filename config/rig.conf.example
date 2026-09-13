@@ -45,11 +45,10 @@ KISMET_PASS="ChangeThisKismetRestPw"  # ~/.kismet/kismet_httpd.conf on first run
 WEB_HTTP_PORT="80"
 WEB_APP_PORT="8090"          # internal gunicorn port, proxied by nginx
 
-# --- Desktop viewer (noVNC) ---
+# --- Desktop viewer (noVNC + wayvnc) ---
 NOVNC_PORT="6080"
-VNC_DISPLAY_NUM="1"          # :1
 VNC_PORT="5901"
-VNC_PASSWORD="ChangeThisVncPw"  # used to set the x11vnc password on first run
+VNC_PASSWORD="ChangeThisVncPw"  # used to set wayvnc's password on first run
 
 # --- Misc ---
 RIG_USER="pi"                 # the non-root user everything runs as

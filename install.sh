@@ -114,7 +114,7 @@ if grep -q '^AP_PASSPHRASE="ChangeThisPassphrase123"' config/rig.conf; then
   sed -i "s/^AP_PASSPHRASE=.*/AP_PASSPHRASE=\"$(sed_escape "$NEW_PASS")\"/" config/rig.conf
 fi
 if grep -q '^VNC_PASSWORD="ChangeThisVncPw"' config/rig.conf; then
-  if NEW_VNC="$(prompt_secret "VNC (remote desktop) password - only the first 8 characters count, blank to auto-generate" 4)"; then
+  if NEW_VNC="$(prompt_secret "VNC (remote desktop) password - blank to auto-generate" 4)"; then
     log "Using the VNC password you entered"
   else
     NEW_VNC="$(gen_secret)"
@@ -162,7 +162,7 @@ apt-get install -y \
   net-tools usbutils dnsutils \
   tcpdump \
   build-essential pkg-config libusb-1.0-0-dev libssl-dev \
-  x11vnc novnc websockify \
+  wayvnc novnc websockify \
   onboard \
   unzip zip
 
@@ -356,21 +356,45 @@ if ! compgen -G "/usr/share/xsessions/*.desktop" >/dev/null && \
 fi
 raspi-config nonint do_boot_behaviour B4 || true   # boot to desktop, autologin
 
-log "Setting the VNC password"
-mkdir -p "${INSTALL_DIR}/config"
-x11vnc -storepasswd "$VNC_PASSWORD" "${INSTALL_DIR}/config/vncpasswd"
-# wardriving-vnc.service runs x11vnc as $RIG_USER (not root), so it needs to
-# be able to read this file - root:root 600 (this script runs as root) would
-# leave x11vnc unable to open its own passwdfile, crash-looping on startup.
-chown "$RIG_USER":"$RIG_USER" "${INSTALL_DIR}/config/vncpasswd"
-chmod 600 "${INSTALL_DIR}/config/vncpasswd"
+log "Setting up wayvnc (Wayland-native VNC server for the rpd-labwc desktop)"
+# rpd-labwc is a Wayland compositor, not X11 - a VNC server has to speak
+# the wlroots screen-capture/virtual-input protocols to work with it at
+# all, which is what wayvnc is for (x11vnc, used here previously, cannot
+# attach to a Wayland session under any circumstances - it is X11-only).
+#
+# wayvnc has no system-level display to attach to the way x11vnc did
+# ("-display :1"); it has to run *inside* the actual labwc session so it
+# inherits that session's WAYLAND_DISPLAY/XDG_RUNTIME_DIR automatically.
+# So instead of a system systemd unit, it's launched via XDG autostart -
+# same mechanism already used for Onboard below - which starts it as a
+# child of the session itself. This also means it only starts on the next
+# login/reboot, not immediately on this install run.
+install -d -o "$RIG_USER" -g "$RIG_USER" -m 0700 "${RIG_HOME}/.config/wayvnc"
+cat > "${RIG_HOME}/.config/wayvnc/config" <<EOF
+address=0.0.0.0
+port=${VNC_PORT}
+enable_auth=true
+username=${RIG_USER}
+password=${VNC_PASSWORD}
+EOF
+chown "$RIG_USER":"$RIG_USER" "${RIG_HOME}/.config/wayvnc/config"
+chmod 600 "${RIG_HOME}/.config/wayvnc/config"
 
-# (wardriving-vnc.service and wardriving-web.service were already rendered
-#  straight into /etc/systemd/system by render-configs.sh)
+mkdir -p /etc/xdg/autostart
+cat > /etc/xdg/autostart/wayvnc-autostart.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=wayvnc
+Exec=wayvnc
+X-GNOME-Autostart-enabled=true
+EOF
+
+# (wardriving-web.service was already rendered straight into
+#  /etc/systemd/system by render-configs.sh)
 install -m 0644 systemd/wardriving-novnc.service /etc/systemd/system/wardriving-novnc.service
 systemctl daemon-reload
-systemctl enable wardriving-vnc.service wardriving-novnc.service
-systemctl restart wardriving-vnc.service wardriving-novnc.service || warn "VNC/noVNC failed to start on first run - normal before the first reboot into the desktop. It should come up after 'sudo reboot'."
+systemctl enable wardriving-novnc.service
+systemctl restart wardriving-novnc.service || warn "noVNC failed to start on first run - normal before the first reboot into the desktop. It should come up after 'sudo reboot'."
 
 # ---------------------------------------------------------------------------
 # Web launcher (Flask + gunicorn behind nginx)

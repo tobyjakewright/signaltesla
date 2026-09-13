@@ -40,7 +40,9 @@ wireless CarPlay dongle.
   - `/stats` — the custom dashboard (Dashboard / Wi-Fi Devices / BLE
     Devices / Alerts tabs)
   - `/export` — lists and downloads capture files (per-file or one ZIP)
-- **x11vnc + noVNC** for the VNC-over-Web button, plus **Onboard** (an
+- **wayvnc + noVNC** for the VNC-over-Web button (wayvnc, not x11vnc,
+  because the desktop is `rpd-labwc` - a Wayland compositor - which
+  x11vnc cannot attach to at all), plus **Onboard** (an
   on-screen keyboard) configured to auto-show whenever a text field is
   focused anywhere in that same desktop session - including inside the
   VNC view, since Onboard runs on the Pi itself and VNC just mirrors
@@ -130,7 +132,7 @@ OS, not assumed from a Kali-oriented starting point:
   given an explicit `channels="..."` list - `kismet/kismet_site.conf.tmpl`
   bakes in the ETSI/UK list already; see the comment there if you need
   the US/Canada UNII-3 high channels added.
-- Everything else (`gpsd`, `hostapd`, `dnsmasq`, `nginx`, `x11vnc`,
+- Everything else (`gpsd`, `hostapd`, `dnsmasq`, `nginx`, `wayvnc`,
   `novnc`, `websockify`, `onboard`, `build-essential`, `libusb-1.0-0-dev`,
   `libssl-dev`) is a standard Debian/Raspberry Pi OS package - no
   substitution needed.
@@ -140,15 +142,13 @@ OS, not assumed from a Kali-oriented starting point:
 All tunables live in `config/rig.conf` (created from
 `config/rig.conf.example` on first run). Notably:
 
-- `AP_PASSPHRASE` (Wi-Fi hotspot) / `VNC_PASSWORD` — `install.sh` asks
-  for these interactively on first run (input hidden, like a password
-  prompt); press Enter with nothing typed to get a random one instead.
-  Classic VNC auth only honors the **first 8 characters** of
-  `VNC_PASSWORD` - keep it to 8 if you want to type the whole thing and
-  have it matter.
-- `KISMET_PASS` — always auto-generated randomly on first run if left at
-  its placeholder value; check `config/rig.conf` after install to see
-  what was generated.
+- `AP_PASSPHRASE` (Wi-Fi hotspot) / `VNC_PASSWORD` / `KISMET_PASS` —
+  `install.sh` asks for each of these interactively on first run (input
+  hidden, like a password prompt); press Enter with nothing typed to get
+  a random one instead. `VNC_PASSWORD` is used as wayvnc's plain
+  username+password auth (`RIG_USER` / `VNC_PASSWORD`, no length limit -
+  unlike the old x11vnc setup, which only honored the first 8 characters
+  of a classic VNC password).
 - `AP_INTERFACE` / `MON_INTERFACE` — stable names assigned by udev
   (`udev/10-wardriving-*.link`), matched by driver (`brcmfmac` for
   onboard Wi-Fi, `mt7921u` for the Alfa) rather than `wlan0`/`wlan1`,
@@ -156,9 +156,10 @@ All tunables live in `config/rig.conf` (created from
 - `KISMET_LOG_DIR` — where Kismet's kismetdb/pcapng and the BLE driver's
   pcap/JSON-lines all land; what `/export` lists.
 
-`config/rig.conf` and `config/vncpasswd` are gitignored — only the
-`.example` template is meant to be committed, so none of your real
-credentials ends up in a GitHub repo.
+`config/rig.conf` is gitignored — only the `.example` template is meant
+to be committed, so none of your real credentials ends up in a GitHub
+repo. wayvnc's own credentials live outside this repo entirely, in
+`~/.config/wayvnc/config` under `RIG_USER`'s home directory.
 
 ## Pushing this to GitHub
 
@@ -221,7 +222,8 @@ connects to as a client is your own car.
 ```
 iw dev                                  # confirm wlan_ap and wlan_mon both exist
 systemctl status hostapd dnsmasq wardriving-ap-netconfig nginx
-systemctl status kismet wardriving-ble wardriving-web wardriving-vnc wardriving-novnc
+systemctl status kismet wardriving-ble wardriving-web wardriving-novnc
+pgrep -a wayvnc                         # wayvnc runs inside the desktop session, not as a system service
 journalctl -u kismet -n 100
 journalctl -u wardriving-ble -n 100
 lsusb -d 1a86:8009                      # WCH analyzer - 3 devices expected
